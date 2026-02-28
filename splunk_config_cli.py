@@ -40,7 +40,7 @@ def post_splunk_changes(token, host, port, conf_type, data_file, update_only=Fal
         return None
 
     log.info(f"Loaded {len(change_list)} stanza(s) from {data_file}")
-    log.info(f"Target: https://{host}:{port} | conf-type: {conf_type} | update-only: {update_only}")
+    log.info(f"Target: https://{host}:{port} | conf-type: {conf_type or 'N/A (post-by-id)'} | update-only: {update_only}")
 
     success, failed, skipped = 0, 0, 0
 
@@ -55,10 +55,14 @@ def post_splunk_changes(token, host, port, conf_type, data_file, update_only=Fal
             parsed_id = urlparse(item_id)
             stanza_url = f"https://{host}:{port}{parsed_id.path}"
             base_url = f"https://{host}:{port}{parsed_id.path.rsplit('/', 1)[0]}"
-        else:
+        elif conf_type:
             # Fallback: construct from app/type/title
             base_url = f"https://{host}:{port}/servicesNS/nobody/{app}/configs/conf-{conf_type}"
             stanza_url = f"{base_url}/{title}"
+        else:
+            log.error(f"Stanza '{title}' has no id and --type was not provided. Skipping.")
+            failed += 1
+            continue
 
         log.info(f"Processing [{title}] in app={app}")
 
@@ -220,8 +224,10 @@ if __name__ == "__main__":
     parser.add_argument("--token", required=True, help="Splunk JWT")
     parser.add_argument("--host", required=True, help="Splunk Host")
     parser.add_argument("--port", default="8089", help="Mgmt Port (8089)")
-    parser.add_argument("--type", required=True, help="e.g. props, savedsearches")
+    parser.add_argument("--type", help="e.g. props, savedsearches (required unless --post-by-id)")
     parser.add_argument("--file", required=True, help="Path to JSON list")
+    parser.add_argument("--post-by-id", action="store_true",
+        help="Use the id field from each JSON item as the request URL; --type becomes optional")
     parser.add_argument("--update-only", action="store_true", help="Only update existing stanzas, skip creation on 404")
     parser.add_argument("--log", metavar="PATH", help="Write log output to a file at the specified path")
     parser.add_argument("--shc", action="store_true",
@@ -230,6 +236,10 @@ if __name__ == "__main__":
         help="Seconds to wait for SHC replication before validating (default: 5)")
 
     args = parser.parse_args()
+
+    if not args.post_by_id and not args.type:
+        parser.error("--type is required unless --post-by-id is specified")
+
     requests.packages.urllib3.disable_warnings()
 
     change_list = post_splunk_changes(args.token, args.host, args.port, args.type, args.file, args.update_only, args.log)

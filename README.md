@@ -11,15 +11,16 @@ A command-line utility for bulk-managing Splunk configuration stanzas via the RE
 ## Usage
 
 ```bash
-python splunk_config_cli.py --token <JWT> --host <SPLUNK_HOST> --type <CONF_TYPE> --file <JSON_FILE> [--port 8089] [--update-only] [--log <PATH>] [--shc] [--shc-delay SECONDS]
+python splunk_config_cli.py --token <JWT> --host <SPLUNK_HOST> --file <JSON_FILE> [--type <CONF_TYPE>] [--post-by-id] [--port 8089] [--update-only] [--log <PATH>] [--shc] [--shc-delay SECONDS]
 ```
 
 | Argument | Required | Description |
 |---|---|---|
 | `--token` | Yes | Splunk JWT bearer token |
 | `--host` | Yes | Splunk hostname or IP |
-| `--type` | Yes | Configuration file type (e.g. `savedsearches`, `macros`, `props`) |
+| `--type` | Conditional | Configuration file type (e.g. `savedsearches`, `macros`, `props`). Required unless `--post-by-id` is specified |
 | `--file` | Yes | Path to the JSON changes file |
+| `--post-by-id` | No | Use the `id` field from each JSON item as the request URL; `--type` becomes optional |
 | `--port` | No | Management port (default: `8089`) |
 | `--update-only` | No | Only update existing stanzas; skip creation on 404 |
 | `--log` | No | Write log output to a file at the specified path |
@@ -216,10 +217,10 @@ You can use a Splunk search to generate a JSON change file directly. This exampl
 Copy the `json_object` field value from the results into a file (e.g. `cron_skew.json`) and run:
 
 ```bash
-python splunk_config_cli.py --token "$TOKEN" --host splunk.example.com --type savedsearches --file cron_skew.json --update-only
+python splunk_config_cli.py --token "$TOKEN" --host splunk.example.com --post-by-id --file cron_skew.json --update-only
 ```
 
-When the JSON includes an `id` field (as produced by `| rest`), the tool uses it as the request URL instead of constructing one from `title`, `app`, and `--type`. This ensures the correct endpoint is hit regardless of URL-encoding or object type.
+Since the JSON includes an `id` field (produced by `| rest`), `--post-by-id` lets you skip `--type` entirely. The tool uses the `id` path as the request URL, ensuring the correct endpoint is hit regardless of URL-encoding or object type.
 
 ## How It Works
 
