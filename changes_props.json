@@ -1,0 +1,27 @@
+[
+  {
+    "title": "test_cli_sourcetype",
+    "app": "search",
+    "configs": {
+      "TIME_PREFIX": "^",
+      "TIME_FORMAT": "%Y-%m-%dT%H:%M:%S.%3N%z",
+      "MAX_TIMESTAMP_LOOKAHEAD": "32",
+      "SHOULD_LINEMERGE": "false",
+      "LINE_BREAKER": "([\\r\\n]+)",
+      "category": "Custom",
+      "description": "Test props entry from CLI utility"
+    }
+  },
+  {
+    "title": "test_cli_sourcetype_two",
+    "app": "search",
+    "configs": {
+      "TIME_PREFIX": "timestamp=",
+      "TIME_FORMAT": "%s",
+      "SHOULD_LINEMERGE": "true",
+      "BREAK_ONLY_BEFORE": "^\\d{4}-\\d{2}-\\d{2}",
+      "category": "Custom",
+      "description": "Second test props entry from CLI utility"
+    }
+  }
+]

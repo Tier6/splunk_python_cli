@@ -1,0 +1,28 @@
+[
+  {
+    "title": "test_cli_macro",
+    "app": "search",
+    "configs": {
+      "definition": "index=_internal sourcetype=splunkd log_level=ERROR",
+      "description": "Test macro - internal errors",
+      "iseval": "0"
+    }
+  },
+  {
+    "title": "test_cli_macro_with_args(2)",
+    "app": "search",
+    "configs": {
+      "definition": "index=$idx$ sourcetype=$st$ | stats count",
+      "description": "Test macro with args - flexible stats",
+      "args": "idx,st",
+      "iseval": "0"
+    }
+  },
+  {
+    "title": "fake_nonexistent_macro",
+    "app": "search",
+    "configs": {
+      "definition": "this should be skipped in update-only mode"
+    }
+  }
+]
