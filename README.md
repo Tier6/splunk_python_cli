@@ -11,7 +11,7 @@ A command-line utility for bulk-managing Splunk configuration stanzas via the RE
 ## Usage
 
 ```bash
-python splunk_config_cli.py --token <JWT> --host <SPLUNK_HOST> --file <JSON_FILE> [--type <CONF_TYPE>] [--post-by-id] [--port 8089] [--update-only] [--log <PATH>] [--shc] [--shc-delay SECONDS]
+python splunk_config_cli.py --token <JWT> --host <SPLUNK_HOST> --file <JSON_FILE> [--type <CONF_TYPE>] [--post-by-id] [--port 8089] [--update-only] [--log <PATH>] [--shc] [--shc-delay SECONDS] [--test-run N] [--workers N]
 ```
 
 | Argument | Required | Description |
@@ -26,6 +26,8 @@ python splunk_config_cli.py --token <JWT> --host <SPLUNK_HOST> --file <JSON_FILE
 | `--log` | No | Write log output to a file at the specified path |
 | `--shc` | No | Validate configs replicated to all SHC members after push |
 | `--shc-delay` | No | Seconds to wait for SHC replication before validating (default: `5`) |
+| `--test-run` | No | Only process the first N items (validates connectivity before full run) |
+| `--workers` | No | Number of concurrent threads for push and validation (default: `8`). Use `1` for sequential execution |
 
 ## JSON File Format
 
@@ -145,6 +147,14 @@ Use `--update-only` to skip stanza creation. If a stanza doesn't exist (404), it
 python splunk_config_cli.py --token "$TOKEN" --host splunk.example.com --type macros --file changes_macros.json --update-only
 ```
 
+### Test Run
+
+Use `--test-run N` to process only the first N items. This validates connectivity (and SHC replication if `--shc` is set) before committing to a full run:
+
+```bash
+python splunk_config_cli.py --token "$TOKEN" --host splunk.example.com --type savedsearches --file changes.json --test-run 2 --shc
+```
+
 ### Logging to a File
 
 Use `--log` to write timestamped output to a log file (output is still printed to the console):
@@ -157,7 +167,7 @@ Example log output:
 
 ```
 2026-02-28 10:15:00,123 [INFO] Loaded 3 stanza(s) from changes.json
-2026-02-28 10:15:00,124 [INFO] Target: https://splunk.example.com:8089 | conf-type: savedsearches | update-only: False
+2026-02-28 10:15:00,124 [INFO] Target: https://splunk.example.com:8089 | conf-type: savedsearches | update-only: False | workers: 8
 2026-02-28 10:15:00,125 [INFO] Processing [test_cli_saved_search] in app=search
 2026-02-28 10:15:00,450 [INFO] Successfully applied changes to test_cli_saved_search.
 2026-02-28 10:15:01,200 [INFO] Complete: 3 succeeded, 0 failed, 0 skipped
