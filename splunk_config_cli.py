@@ -48,10 +48,17 @@ def post_splunk_changes(token, host, port, conf_type, data_file, update_only=Fal
         title = item.get("title")
         app = item.get("app", "search")
         configs = item.get("configs", {})
+        item_id = item.get("id")
 
-        # URL mapping: /servicesNS/nobody/<app>/configs/conf-<type>/<title>
-        base_url = f"https://{host}:{port}/servicesNS/nobody/{app}/configs/conf-{conf_type}"
-        stanza_url = f"{base_url}/{title}"
+        if item_id:
+            # Favor id: use its path but target the CLI-specified host:port
+            parsed_id = urlparse(item_id)
+            stanza_url = f"https://{host}:{port}{parsed_id.path}"
+            base_url = f"https://{host}:{port}{parsed_id.path.rsplit('/', 1)[0]}"
+        else:
+            # Fallback: construct from app/type/title
+            base_url = f"https://{host}:{port}/servicesNS/nobody/{app}/configs/conf-{conf_type}"
+            stanza_url = f"{base_url}/{title}"
 
         log.info(f"Processing [{title}] in app={app}")
 
@@ -153,12 +160,18 @@ def validate_shc(token, host, port, conf_type, change_list, delay=5, log_file=No
         title = item.get("title")
         app = item.get("app", "search")
         configs = item.get("configs", {})
+        item_id = item.get("id")
 
         for member in members:
             total_checks += 1
-            stanza_url = (f"https://{member['host']}:{member['port']}"
-                          f"/servicesNS/nobody/{app}/configs/conf-{conf_type}"
-                          f"/{title}?output_mode=json")
+            if item_id:
+                parsed_id = urlparse(item_id)
+                stanza_url = (f"https://{member['host']}:{member['port']}"
+                              f"{parsed_id.path}?output_mode=json")
+            else:
+                stanza_url = (f"https://{member['host']}:{member['port']}"
+                              f"/servicesNS/nobody/{app}/configs/conf-{conf_type}"
+                              f"/{title}?output_mode=json")
 
             try:
                 resp = requests.get(stanza_url, headers=headers, verify=False)

@@ -46,6 +46,7 @@ Each JSON file is an array of objects. Every object represents a single stanza t
 |---|---|---|
 | `title` | Yes | The stanza name (e.g. saved search name, sourcetype, macro name) |
 | `app` | No | Target app context (default: `search`) |
+| `id` | No | Full REST API URL for the stanza (e.g. from `\| rest`). When present, used as the request URL instead of constructing from `title`/`app`/`--type` |
 | `configs` | Yes | Key-value pairs matching the conf file settings for that stanza |
 
 ## Examples
@@ -192,10 +193,39 @@ Example output:
 2026-02-28 10:15:08,001 [INFO] SHC Validation: 2/2 stanzas verified across 3 members (6/6 checks passed)
 ```
 
+### Generating a JSON File with Splunk SPL (Cron Skew Example)
+
+You can use a Splunk search to generate a JSON change file directly. This example finds all enabled saved searches with cron schedules starting at minute `0` (top of the hour) and skews them across the first 30 minutes to reduce scheduling contention:
+
+```spl
+| rest splunk_server=local /servicesNS/-/-/saved/searches
+| fields title eai:acl.app disabled cron_schedule is_scheduled schedule_window id
+| where isnotnull(cron_schedule) AND match(cron_schedule, "^0[^\d]") AND disabled=0
+| streamstats count as ct_count
+| eventstats max(ct_count) as max_count
+| eval spm = round(max_count / 30, 0), diff = if(round(ct_count/spm) > 1, round(ct_count/spm), 1)
+| eval new_cron = cron_schedule
+| rex mode=sed field=new_cron "s/^0//g"
+| eval new_cron = diff.new_cron
+| eval json_object = json_object("title", title, "app", 'eai:acl.app', "id", id, "configs", json_object("disabled", disabled, "cron_schedule", new_cron, "is_schedule", is_scheduled, "schedule_window", "auto"))
+| stats values(json_object) as json_object
+| eval json_object = "[" + mvjoin(json_object, ",||") + "]"
+| rex mode=sed field=json_object "s/\|\|/\n/g"
+```
+
+Copy the `json_object` field value from the results into a file (e.g. `cron_skew.json`) and run:
+
+```bash
+python splunk_config_cli.py --token "$TOKEN" --host splunk.example.com --type savedsearches --file cron_skew.json --update-only
+```
+
+When the JSON includes an `id` field (as produced by `| rest`), the tool uses it as the request URL instead of constructing one from `title`, `app`, and `--type`. This ensures the correct endpoint is hit regardless of URL-encoding or object type.
+
 ## How It Works
 
 For each entry in the JSON file, the tool:
 
-1. **Attempts an update** by POSTing to `/servicesNS/nobody/<app>/configs/conf-<type>/<title>`
-2. **If the stanza doesn't exist** (HTTP 404) and `--update-only` is not set, it **creates** the stanza by POSTing to the base endpoint with `name` included in the payload
-3. Reports success or failure for each stanza
+1. **Determines the target URL** — if `id` is present, its path is used with the CLI-specified `--host`/`--port`; otherwise a URL is constructed from `app`, `--type`, and `title`
+2. **Attempts an update** by POSTing to the stanza URL
+3. **If the stanza doesn't exist** (HTTP 404) and `--update-only` is not set, it **creates** the stanza by POSTing to the parent endpoint with `name` included in the payload
+4. Reports success or failure for each stanza
